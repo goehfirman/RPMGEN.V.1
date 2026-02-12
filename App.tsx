@@ -32,18 +32,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (data: FormData) => {
+  const handleSubmit = async (data: FormData, apiKey: string) => {
     setIsLoading(true);
     try {
-      const generatedContent = await generateRPM(data);
+      const generatedContent = await generateRPM(data, apiKey);
       const fullResult: RPMResult = {
         ...data,
         ...generatedContent
       };
       setRpmResult(fullResult);
-    } catch (error) {
-      alert("Terjadi kesalahan saat menghubungi AI. Pastikan API Key Anda benar atau kuota Anda masih tersedia.");
+    } catch (error: any) {
       console.error(error);
+      if (error.message === "QUOTA_EXCEEDED" || String(error?.message).includes("quota")) {
+         alert("⚠️ KUOTA HABIS ⚠️\n\nGoogle membatasi penggunaan API Key Anda karena terlalu sering melakukan permintaan dalam waktu singkat.\n\nSOLUSI:\n1. Tunggu 1-2 menit, lalu coba tekan tombol 'Buat RPM' lagi.\n2. Jika terus berulang, gunakan Akun Google lain untuk membuat API Key baru.");
+      } else {
+         alert("Terjadi kesalahan teknis. Pastikan koneksi internet stabil dan API Key Anda valid.");
+      }
     } finally {
       setIsLoading(false);
     }

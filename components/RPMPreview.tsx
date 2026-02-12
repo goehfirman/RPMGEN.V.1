@@ -81,7 +81,9 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
   };
 
   const handleGenerateExtra = async (type: 'lkpd' | 'soal') => {
-    // API Key is handled by process.env inside the service
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) return alert("API Key tidak ditemukan. Harap login ulang.");
+
     setIsGenerating(true);
     setActiveModal(type);
     setModalContent(''); // Clear previous content
@@ -89,9 +91,9 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
     try {
         let content = '';
         if (type === 'lkpd') {
-            content = await generateLKPD(data);
+            content = await generateLKPD(data, apiKey);
         } else {
-            content = await generateSoal(data);
+            content = await generateSoal(data, apiKey);
         }
         setModalContent(content);
     } catch (e) {
@@ -105,7 +107,7 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
   const SIGNATURE_URL = "https://i.ibb.co.com/KctJSrRC/ttd-gue.png";
   const shouldShowSignature = data.teacherName.trim() === TARGET_TEACHER;
 
-  // Format Nama File: RPM_Pelajaran_Kelas_NamaGuru_Tanggal.pdf
+  // Format Nama File: RPM_Pelajaran_Kelas_Nama guru_tanggal dokumen
   const downloadFileName = `RPM_${data.subject}_Kelas ${data.classLevel}_${data.teacherName}_${data.documentDate}.pdf`;
 
   return (

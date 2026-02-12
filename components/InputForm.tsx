@@ -5,14 +5,16 @@ import {
 } from '../types';
 import { getFieldSuggestions } from '../services/geminiService';
 import DatePicker from './DatePicker';
-import { Loader2, Check, X, Sparkles, BookOpen, User, Calendar, BrainCircuit, Activity } from 'lucide-react';
+import { Loader2, Check, X, Sparkles, Eye, EyeOff, BookOpen, User, Calendar, BrainCircuit, Activity } from 'lucide-react';
 
 interface InputFormProps {
-  onSubmit: (data: FormData) => void;
+  onSubmit: (data: FormData, apiKey: string) => void;
   isLoading: boolean;
 }
 
 const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
   const today = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState<FormData>({
@@ -37,6 +39,11 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
   const [activeField, setActiveField] = useState<'cp' | 'tp' | 'materi' | null>(null);
   const [loadingField, setLoadingField] = useState<'cp' | 'tp' | 'materi' | null>(null);
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) setApiKey(savedKey);
+  }, []);
 
   // Effect: Menangani perubahan jumlah pertemuan
   useEffect(() => {
@@ -90,6 +97,11 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
   };
 
   const handleGetSuggestion = async (field: 'cp' | 'tp' | 'materi') => {
+    if (!apiKey) {
+      alert("Mohon masukkan API Key terlebih dahulu.");
+      return;
+    }
+
     // Validasi Dependensi: CP -> TP -> Materi
     if (field === 'tp' && !formData.cp.trim()) {
       alert("Harap isi Capaian Pembelajaran (CP) terlebih dahulu agar TP yang disarankan sesuai.");
@@ -114,7 +126,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
       context = formData.tp;
     }
 
-    const opts = await getFieldSuggestions(field, formData.subject, formData.classLevel, context);
+    const opts = await getFieldSuggestions(field, formData.subject, formData.classLevel, apiKey, context);
     setSuggestions(opts);
     setActiveField(field);
     setLoadingField(null);
@@ -150,7 +162,8 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    if (!apiKey) return alert("API Key wajib diisi.");
+    onSubmit(formData, apiKey);
   };
 
   const SectionTitle = ({ title, icon: Icon }: { title: string, icon: any }) => (
@@ -261,6 +274,44 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
   return (
     <form onSubmit={handleSubmit} className="bg-white/60 backdrop-blur-xl border border-white/40 p-8 md:p-12 max-w-5xl mx-auto rounded-2xl shadow-xl ring-1 ring-purple-100">
       
+      {/* Otorisasi Sistem */}
+      <div className="bg-white rounded-xl p-6 border border-purple-100 shadow-sm mb-10 relative group">
+        <div className="flex flex-col md:flex-row md:items-center gap-6 relative z-10">
+          <div className="flex-1">
+             <label className="text-[10px] font-bold text-purple-600 uppercase tracking-widest mb-2 block flex items-center gap-2">
+               Otorisasi Sistem: Gemini API Key
+             </label>
+             <div className="relative">
+               <input 
+                 type={showApiKey ? "text" : "password"} 
+                 value={apiKey} 
+                 onChange={(e) => { setApiKey(e.target.value); localStorage.setItem('gemini_api_key', e.target.value); }}
+                 placeholder="Tempel Kunci di Sini..." 
+                 className="w-full bg-slate-50 border border-slate-200 focus:border-purple-400 rounded-lg px-4 py-3 text-sm font-mono text-slate-700 placeholder:text-slate-400 outline-none transition-all"
+               />
+             </div>
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+             <button 
+                 type="button"
+                 onClick={() => setShowApiKey(!showApiKey)}
+                 className="text-slate-400 hover:text-purple-600 transition-colors"
+               >
+                 {showApiKey ? <EyeOff size={20} /> : <Eye size={20} />}
+             </button>
+             <div className="h-8 w-px bg-slate-200"></div>
+             <a 
+              href="https://aistudio.google.com/app/apikey" 
+              target="_blank" 
+              rel="noreferrer" 
+              className="px-5 py-2.5 bg-white border border-purple-200 text-purple-600 text-xs font-bold rounded-lg hover:bg-purple-50 hover:border-purple-300 transition-all uppercase tracking-wide shadow-sm"
+             >
+               Buat Kunci
+             </a>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Informasi Pendidik */}
       <section>
         <SectionTitle title="1. Informasi Pendidik" icon={User} />

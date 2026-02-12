@@ -69,19 +69,23 @@ const documentContentSchema: Schema = {
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Helper: Wrapper to retry API calls on 429 errors
-const generateWithRetry = async (ai: GoogleGenAI, params: any, maxRetries = 3) => {
-  let delay = 2000; // Start delay at 2s
+const generateWithRetry = async (ai: GoogleGenAI, params: any, maxRetries = 5) => {
+  let delay = 3000; // Start delay at 3s to be safe
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await ai.models.generateContent(params);
     } catch (error: any) {
-      const isRateLimit = 
-        error?.status === 429 || 
-        error?.code === 429 || 
-        String(error?.message).includes('429') || 
-        String(error?.status).includes('RESOURCE_EXHAUSTED');
+      const msg = String(error?.message || '').toLowerCase();
+      const status = error?.status || error?.code;
       
-      const isServerOverload = error?.status === 503 || error?.code === 503;
+      const isRateLimit = 
+        status === 429 || 
+        msg.includes('429') || 
+        msg.includes('quota') || 
+        msg.includes('exhausted') ||
+        String(status).includes('RESOURCE_EXHAUSTED');
+      
+      const isServerOverload = status === 503;
 
       if ((isRateLimit || isServerOverload) && i < maxRetries - 1) {
         console.warn(`Gemini API busy (Attempt ${i + 1}/${maxRetries}). Retrying in ${delay}ms...`);
@@ -89,6 +93,12 @@ const generateWithRetry = async (ai: GoogleGenAI, params: any, maxRetries = 3) =
         delay *= 2; // Exponential backoff
         continue;
       }
+      
+      // Jika retry habis dan error adalah rate limit, lempar error khusus
+      if (isRateLimit) {
+        throw new Error("QUOTA_EXCEEDED");
+      }
+      
       throw error;
     }
   }
@@ -134,7 +144,7 @@ export const generateRPM = async (data: FormData, apiKey: string): Promise<Gener
 
   try {
     const response = await generateWithRetry(ai, {
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview", // Changed to Flash for better quota efficiency
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -186,10 +196,10 @@ export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<str
     return result.htmlContent || "<p>Gagal membuat LKPD.</p>";
   } catch (error: any) {
     console.error("Error generating LKPD:", error);
-    if (String(error?.message).includes('429') || String(error?.status).includes('RESOURCE_EXHAUSTED')) {
+    if (error.message === "QUOTA_EXCEEDED" || String(error?.message).includes('429')) {
         return `<div style="padding: 20px; text-align: center; color: #dc2626; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;">
            <h3 style="font-weight: bold; margin-bottom: 8px;">Kuota Habis (Limit Tercapai)</h3>
-           <p>Maaf, kunci API Anda telah mencapai batas penggunaan. Silakan tunggu beberapa saat lagi.</p>
+           <p>Maaf, kunci API Anda telah mencapai batas penggunaan Google. Silakan tunggu 1-2 menit atau ganti API Key.</p>
         </div>`;
     }
     return "<p>Terjadi kesalahan saat membuat LKPD.</p>";
@@ -230,10 +240,10 @@ export const generateSoal = async (data: RPMResult, apiKey: string): Promise<str
     return result.htmlContent || "<p>Gagal membuat Soal.</p>";
   } catch (error: any) {
     console.error("Error generating Soal:", error);
-    if (String(error?.message).includes('429') || String(error?.status).includes('RESOURCE_EXHAUSTED')) {
+    if (error.message === "QUOTA_EXCEEDED" || String(error?.message).includes('429')) {
         return `<div style="padding: 20px; text-align: center; color: #dc2626; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;">
            <h3 style="font-weight: bold; margin-bottom: 8px;">Kuota Habis (Limit Tercapai)</h3>
-           <p>Maaf, kunci API Anda telah mencapai batas penggunaan. Silakan tunggu beberapa saat lagi.</p>
+           <p>Maaf, kunci API Anda telah mencapai batas penggunaan Google. Silakan tunggu 1-2 menit atau ganti API Key.</p>
         </div>`;
     }
     return "<p>Terjadi kesalahan saat membuat Soal.</p>";
@@ -296,8 +306,11 @@ export const getFieldSuggestions = async (
         });
         const result = JSON.parse(response.text || "{}");
         return result.options || [];
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
+        if (e.message === "QUOTA_EXCEEDED") {
+            return ["⚠️ Kuota API Habis. Tunggu sebentar."];
+        }
         return ["Gagal mengambil saran (Coba lagi nanti)."];
     }
 };

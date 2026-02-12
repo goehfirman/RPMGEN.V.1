@@ -2,31 +2,7 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { FormData, GeneratedContent, Subject, ClassLevel, RPMResult } from "../types";
 import { CP_REF } from "../data/cpReference";
 
-// Helper: Get AI Instance dengan Prioritas Logic
-// 1. Parameter (dari State React)
-// 2. LocalStorage (User saved)
-// 3. Environment Variable (Vercel/Vite)
-const getAI = (providedKey?: string) => {
-  let finalKey = providedKey;
-
-  // Cek LocalStorage jika parameter kosong
-  if (!finalKey || finalKey.trim() === '') {
-    finalKey = localStorage.getItem('gemini_api_key') || '';
-  }
-
-  // Cek Environment Variable jika masih kosong (Vite prefix VITE_)
-  if (!finalKey || finalKey.trim() === '') {
-    // Cast import.meta to any to avoid TS error
-    finalKey = (import.meta as any).env.VITE_GEMINI_API_KEY || '';
-  }
-
-  // Jika tetap kosong, lempar error spesifik
-  if (!finalKey || finalKey.trim() === '') {
-    throw new Error("API_KEY_MISSING");
-  }
-
-  return new GoogleGenAI({ apiKey: finalKey });
-};
+const getAI = (apiKey: string) => new GoogleGenAI({ apiKey });
 
 const generatedContentSchema: Schema = {
   type: Type.OBJECT,
@@ -93,23 +69,19 @@ const documentContentSchema: Schema = {
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Helper: Wrapper to retry API calls on 429 errors
-const generateWithRetry = async (ai: GoogleGenAI, params: any, maxRetries = 5) => {
-  let delay = 3000; // Start delay at 3s to be safe
+const generateWithRetry = async (ai: GoogleGenAI, params: any, maxRetries = 3) => {
+  let delay = 2000; // Start delay at 2s
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await ai.models.generateContent(params);
     } catch (error: any) {
-      const msg = String(error?.message || '').toLowerCase();
-      const status = error?.status || error?.code;
-      
       const isRateLimit = 
-        status === 429 || 
-        msg.includes('429') || 
-        msg.includes('quota') || 
-        msg.includes('exhausted') ||
-        String(status).includes('RESOURCE_EXHAUSTED');
+        error?.status === 429 || 
+        error?.code === 429 || 
+        String(error?.message).includes('429') || 
+        String(error?.status).includes('RESOURCE_EXHAUSTED');
       
-      const isServerOverload = status === 503;
+      const isServerOverload = error?.status === 503 || error?.code === 503;
 
       if ((isRateLimit || isServerOverload) && i < maxRetries - 1) {
         console.warn(`Gemini API busy (Attempt ${i + 1}/${maxRetries}). Retrying in ${delay}ms...`);
@@ -117,12 +89,6 @@ const generateWithRetry = async (ai: GoogleGenAI, params: any, maxRetries = 5) =
         delay *= 2; // Exponential backoff
         continue;
       }
-      
-      // Jika retry habis dan error adalah rate limit, lempar error khusus
-      if (isRateLimit) {
-        throw new Error("QUOTA_EXCEEDED");
-      }
-      
       throw error;
     }
   }
@@ -130,17 +96,9 @@ const generateWithRetry = async (ai: GoogleGenAI, params: any, maxRetries = 5) =
 };
 
 export const generateRPM = async (data: FormData, apiKey: string): Promise<GeneratedContent> => {
-  // Logic pengambilan key dipindahkan ke getAI()
-  let ai;
-  try {
-    ai = getAI(apiKey);
-  } catch (e: any) {
-    if (e.message === 'API_KEY_MISSING') {
-      throw new Error("API Key belum diatur. Silakan masukkan di formulir atau cek konfigurasi.");
-    }
-    throw e;
-  }
+  if (!apiKey) throw new Error("API Key wajib diisi.");
 
+  const ai = getAI(apiKey);
   const pedagogies = data.meetings.map(m => `Pertemuan ${m.meetingNumber}: ${m.pedagogy}`).join(", ");
   const dimensions = data.dimensions.join(", ");
 
@@ -176,7 +134,7 @@ export const generateRPM = async (data: FormData, apiKey: string): Promise<Gener
 
   try {
     const response = await generateWithRetry(ai, {
-      model: "gemini-3-flash-preview", // Changed to Flash for better quota efficiency
+      model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -192,13 +150,7 @@ export const generateRPM = async (data: FormData, apiKey: string): Promise<Gener
 };
 
 export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<string> => {
-  let ai;
-  try {
-    ai = getAI(apiKey);
-  } catch (e: any) {
-    return `<div style="padding: 20px; color: red; border: 1px solid red;">API Key tidak ditemukan (Code: MISSING).</div>`;
-  }
-
+  const ai = getAI(apiKey);
   const prompt = `
     Buatkan Lembar Kerja Peserta Didik (LKPD) yang menarik dan siap cetak untuk siswa SD.
     
@@ -234,10 +186,10 @@ export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<str
     return result.htmlContent || "<p>Gagal membuat LKPD.</p>";
   } catch (error: any) {
     console.error("Error generating LKPD:", error);
-    if (error.message === "QUOTA_EXCEEDED" || String(error?.message).includes('429')) {
+    if (String(error?.message).includes('429') || String(error?.status).includes('RESOURCE_EXHAUSTED')) {
         return `<div style="padding: 20px; text-align: center; color: #dc2626; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;">
            <h3 style="font-weight: bold; margin-bottom: 8px;">Kuota Habis (Limit Tercapai)</h3>
-           <p>Maaf, kunci API Anda telah mencapai batas penggunaan Google. Silakan tunggu 1-2 menit atau ganti API Key.</p>
+           <p>Maaf, kunci API Anda telah mencapai batas penggunaan. Silakan tunggu beberapa saat lagi.</p>
         </div>`;
     }
     return "<p>Terjadi kesalahan saat membuat LKPD.</p>";
@@ -245,13 +197,7 @@ export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<str
 };
 
 export const generateSoal = async (data: RPMResult, apiKey: string): Promise<string> => {
-  let ai;
-  try {
-    ai = getAI(apiKey);
-  } catch (e: any) {
-    return `<div style="padding: 20px; color: red; border: 1px solid red;">API Key tidak ditemukan (Code: MISSING).</div>`;
-  }
-
+  const ai = getAI(apiKey);
   const prompt = `
     Buatkan instrumen penilaian pengetahuan (Soal Latihan) untuk siswa SD.
     
@@ -284,10 +230,10 @@ export const generateSoal = async (data: RPMResult, apiKey: string): Promise<str
     return result.htmlContent || "<p>Gagal membuat Soal.</p>";
   } catch (error: any) {
     console.error("Error generating Soal:", error);
-    if (error.message === "QUOTA_EXCEEDED" || String(error?.message).includes('429')) {
+    if (String(error?.message).includes('429') || String(error?.status).includes('RESOURCE_EXHAUSTED')) {
         return `<div style="padding: 20px; text-align: center; color: #dc2626; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;">
            <h3 style="font-weight: bold; margin-bottom: 8px;">Kuota Habis (Limit Tercapai)</h3>
-           <p>Maaf, kunci API Anda telah mencapai batas penggunaan Google. Silakan tunggu 1-2 menit atau ganti API Key.</p>
+           <p>Maaf, kunci API Anda telah mencapai batas penggunaan. Silakan tunggu beberapa saat lagi.</p>
         </div>`;
     }
     return "<p>Terjadi kesalahan saat membuat Soal.</p>";
@@ -307,13 +253,9 @@ export const getFieldSuggestions = async (
   apiKey: string,
   currentContext: string = "" 
 ): Promise<string[]> => {
-    let ai;
-    try {
-      ai = getAI(apiKey);
-    } catch (e) {
-      return ["API Key belum diatur. Masukkan Key di form atau cek Env Var."];
-    }
+    if (!apiKey) return ["Harap masukkan API Key terlebih dahulu."];
 
+    const ai = getAI(apiKey);
     const phase = getPhase(classLevel);
     const officialCP = CP_REF[subject]?.[phase];
 
@@ -354,11 +296,8 @@ export const getFieldSuggestions = async (
         });
         const result = JSON.parse(response.text || "{}");
         return result.options || [];
-    } catch (e: any) {
+    } catch (e) {
         console.error(e);
-        if (e.message === "QUOTA_EXCEEDED") {
-            return ["⚠️ Kuota API Habis. Tunggu sebentar."];
-        }
         return ["Gagal mengambil saran (Coba lagi nanti)."];
     }
 };

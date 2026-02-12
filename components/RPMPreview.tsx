@@ -107,7 +107,7 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
   const SIGNATURE_URL = "https://i.ibb.co.com/KctJSrRC/ttd-gue.png";
   const shouldShowSignature = data.teacherName.trim() === TARGET_TEACHER;
 
-  // Format Nama File: RPM_Pelajaran_Kelas_Nama guru_tanggal dokumen
+  // Format Nama File: RPM_Pelajaran_Kelas_NamaGuru_Tanggal.pdf
   const downloadFileName = `RPM_${data.subject}_Kelas ${data.classLevel}_${data.teacherName}_${data.documentDate}.pdf`;
 
   return (

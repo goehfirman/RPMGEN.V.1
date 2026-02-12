@@ -81,9 +81,7 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
   };
 
   const handleGenerateExtra = async (type: 'lkpd' | 'soal') => {
-    const apiKey = localStorage.getItem('gemini_api_key');
-    if (!apiKey) return alert("API Key tidak ditemukan. Harap login ulang.");
-
+    // API Key is handled by process.env inside the service
     setIsGenerating(true);
     setActiveModal(type);
     setModalContent(''); // Clear previous content
@@ -91,9 +89,9 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
     try {
         let content = '';
         if (type === 'lkpd') {
-            content = await generateLKPD(data, apiKey);
+            content = await generateLKPD(data);
         } else {
-            content = await generateSoal(data, apiKey);
+            content = await generateSoal(data);
         }
         setModalContent(content);
     } catch (e) {

@@ -32,10 +32,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (data: FormData, apiKey: string) => {
+  const handleSubmit = async (data: FormData) => {
     setIsLoading(true);
     try {
-      const generatedContent = await generateRPM(data, apiKey);
+      const generatedContent = await generateRPM(data);
       const fullResult: RPMResult = {
         ...data,
         ...generatedContent

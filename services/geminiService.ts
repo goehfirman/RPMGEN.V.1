@@ -2,7 +2,31 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { FormData, GeneratedContent, Subject, ClassLevel, RPMResult } from "../types";
 import { CP_REF } from "../data/cpReference";
 
-const getAI = (apiKey: string) => new GoogleGenAI({ apiKey });
+// Helper: Get AI Instance dengan Prioritas Logic
+// 1. Parameter (dari State React)
+// 2. LocalStorage (User saved)
+// 3. Environment Variable (Vercel/Vite)
+const getAI = (providedKey?: string) => {
+  let finalKey = providedKey;
+
+  // Cek LocalStorage jika parameter kosong
+  if (!finalKey || finalKey.trim() === '') {
+    finalKey = localStorage.getItem('gemini_api_key') || '';
+  }
+
+  // Cek Environment Variable jika masih kosong (Vite prefix VITE_)
+  if (!finalKey || finalKey.trim() === '') {
+    // Cast import.meta to any to avoid TS error
+    finalKey = (import.meta as any).env.VITE_GEMINI_API_KEY || '';
+  }
+
+  // Jika tetap kosong, lempar error spesifik
+  if (!finalKey || finalKey.trim() === '') {
+    throw new Error("API_KEY_MISSING");
+  }
+
+  return new GoogleGenAI({ apiKey: finalKey });
+};
 
 const generatedContentSchema: Schema = {
   type: Type.OBJECT,
@@ -106,9 +130,17 @@ const generateWithRetry = async (ai: GoogleGenAI, params: any, maxRetries = 5) =
 };
 
 export const generateRPM = async (data: FormData, apiKey: string): Promise<GeneratedContent> => {
-  if (!apiKey) throw new Error("API Key wajib diisi.");
+  // Logic pengambilan key dipindahkan ke getAI()
+  let ai;
+  try {
+    ai = getAI(apiKey);
+  } catch (e: any) {
+    if (e.message === 'API_KEY_MISSING') {
+      throw new Error("API Key belum diatur. Silakan masukkan di formulir atau cek konfigurasi.");
+    }
+    throw e;
+  }
 
-  const ai = getAI(apiKey);
   const pedagogies = data.meetings.map(m => `Pertemuan ${m.meetingNumber}: ${m.pedagogy}`).join(", ");
   const dimensions = data.dimensions.join(", ");
 
@@ -160,7 +192,13 @@ export const generateRPM = async (data: FormData, apiKey: string): Promise<Gener
 };
 
 export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<string> => {
-  const ai = getAI(apiKey);
+  let ai;
+  try {
+    ai = getAI(apiKey);
+  } catch (e: any) {
+    return `<div style="padding: 20px; color: red; border: 1px solid red;">API Key tidak ditemukan (Code: MISSING).</div>`;
+  }
+
   const prompt = `
     Buatkan Lembar Kerja Peserta Didik (LKPD) yang menarik dan siap cetak untuk siswa SD.
     
@@ -207,7 +245,13 @@ export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<str
 };
 
 export const generateSoal = async (data: RPMResult, apiKey: string): Promise<string> => {
-  const ai = getAI(apiKey);
+  let ai;
+  try {
+    ai = getAI(apiKey);
+  } catch (e: any) {
+    return `<div style="padding: 20px; color: red; border: 1px solid red;">API Key tidak ditemukan (Code: MISSING).</div>`;
+  }
+
   const prompt = `
     Buatkan instrumen penilaian pengetahuan (Soal Latihan) untuk siswa SD.
     
@@ -263,9 +307,13 @@ export const getFieldSuggestions = async (
   apiKey: string,
   currentContext: string = "" 
 ): Promise<string[]> => {
-    if (!apiKey) return ["Harap masukkan API Key terlebih dahulu."];
+    let ai;
+    try {
+      ai = getAI(apiKey);
+    } catch (e) {
+      return ["API Key belum diatur. Masukkan Key di form atau cek Env Var."];
+    }
 
-    const ai = getAI(apiKey);
     const phase = getPhase(classLevel);
     const officialCP = CP_REF[subject]?.[phase];
 

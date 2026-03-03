@@ -104,8 +104,9 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
   };
 
   const TARGET_TEACHER = "Teguh Firmansyah Apriliana, S.Pd";
-  const SIGNATURE_URL = "https://i.ibb.co.com/KctJSrRC/ttd-gue.png";
-  const shouldShowSignature = data.teacherName.trim() === TARGET_TEACHER;
+  const DEFAULT_SIGNATURE_URL = "https://i.ibb.co.com/KctJSrRC/ttd-gue.png";
+  const shouldShowDefaultSignature = data.teacherName.trim() === TARGET_TEACHER;
+  const signatureSrc = data.teacherSignature || (shouldShowDefaultSignature ? DEFAULT_SIGNATURE_URL : null);
 
   // Format Nama File: RPM_Pelajaran_Kelas_Nama guru_tanggal dokumen
   const downloadFileName = `RPM_${data.subject}_Kelas ${data.classLevel}_${data.teacherName}_${data.documentDate}.pdf`;
@@ -368,7 +369,7 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
                 <p style={{ margin: 0 }}>Jakarta, {formatDate(data.documentDate)}</p>
                 <p style={{ margin: 0, fontWeight: 'bold' }}>Guru Kelas / Mata Pelajaran</p>
                 <div style={{ height: '180px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                   {shouldShowSignature && <img src={SIGNATURE_URL} alt="Tanda Tangan" crossOrigin="anonymous" style={{ height: '125px', width: 'auto', marginBottom: '-10px' }} />}
+                   {signatureSrc && <img src={signatureSrc} alt="Tanda Tangan" crossOrigin="anonymous" style={{ height: '125px', width: 'auto', marginBottom: '-10px', objectFit: 'contain' }} />}
                 </div>
                 <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{data.teacherName}</p>
                 <p style={{ margin: 0 }}>NIP. {data.teacherNIP}</p>

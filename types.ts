@@ -54,6 +54,7 @@ export interface MeetingPlan {
 export interface FormData {
   teacherName: string;
   teacherNIP: string;
+  teacherSignature?: string;
   principalName: string; 
   principalNIP: string;
   classLevel: ClassLevel;

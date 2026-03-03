@@ -5,7 +5,7 @@ import {
 } from '../types';
 import { getFieldSuggestions } from '../services/geminiService';
 import DatePicker from './DatePicker';
-import { Loader2, Check, X, Sparkles, Eye, EyeOff, BookOpen, User, Calendar, BrainCircuit, Activity } from 'lucide-react';
+import { Loader2, Check, X, Sparkles, Eye, EyeOff, BookOpen, User, Calendar, BrainCircuit, Activity, Upload } from 'lucide-react';
 
 interface InputFormProps {
   onSubmit: (data: FormData, apiKey: string) => void;
@@ -88,6 +88,17 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
       const exists = prev.dimensions.includes(dim);
       return { ...prev, dimensions: exists ? prev.dimensions.filter(d => d !== dim) : [...prev.dimensions, dim] };
     });
+  };
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, teacherSignature: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handlePedagogyChange = (index: number, value: PedagogicalPractice) => {
@@ -328,6 +339,22 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
           />
           <div><InputLabel label="Nama Guru" required /><input required name="teacherName" value={formData.teacherName} onChange={handleChange} className={InputClasses} placeholder="Nama Lengkap & Gelar" /></div>
           <div><InputLabel label="NIP Guru" required /><input required name="teacherNIP" value={formData.teacherNIP} onChange={handleChange} className={InputClasses} placeholder="NIP tanpa spasi" /></div>
+          <div className="md:col-span-2">
+            <InputLabel label="Tanda Tangan Guru (Opsional)" />
+            <div className="relative">
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleSignatureUpload}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition-all cursor-pointer border border-slate-200 rounded-lg p-1.5 bg-white"
+              />
+              {formData.teacherSignature && (
+                <div className="mt-2 text-xs text-green-600 flex items-center gap-1 font-medium">
+                  <Check size={14} /> Tanda tangan berhasil diunggah
+                </div>
+              )}
+            </div>
+          </div>
           <div>
             <InputLabel label="Nama Kepala Sekolah" />
             <input name="principalName" value={formData.principalName} disabled className={`${InputClasses} bg-slate-50 font-semibold text-slate-400`} />

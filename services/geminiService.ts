@@ -191,6 +191,44 @@ export const generateRPM = async (data: FormData, apiKey: string): Promise<Gener
   }
 };
 
+export const generateImageForTopic = async (topic: string, apiKey: string): Promise<string | null> => {
+  let ai;
+  try {
+    ai = getAI(apiKey);
+  } catch (e: any) {
+    return null;
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-image-preview',
+      contents: {
+        parts: [
+          {
+            text: `Generate a realistic, high-quality educational image for the topic: ${topic}.`,
+          },
+        ],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "16:9",
+          imageSize: "1K"
+        }
+      },
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error("Error generating image:", error);
+    return null;
+  }
+};
+
 export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<string> => {
   let ai;
   try {
@@ -198,6 +236,8 @@ export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<str
   } catch (e: any) {
     return `<div style="padding: 20px; color: red; border: 1px solid red;">API Key tidak ditemukan (Code: MISSING).</div>`;
   }
+
+  const imageUrl = await generateImageForTopic(data.materi, apiKey);
 
   const prompt = `
     Buatkan Lembar Kerja Peserta Didik (LKPD) yang menarik dan siap cetak untuk siswa SD.
@@ -207,6 +247,7 @@ export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<str
     - Mata Pelajaran: ${data.subject}
     - Materi: ${data.materi}
     - Tujuan Pembelajaran: ${data.tp}
+    ${imageUrl ? `- Gambar relevan untuk materi: Tersedia (akan disisipkan di bagian atas LKPD).` : ''}
 
     Instruksi Output:
     Kembalikan output sebagai string HTML lengkap (tanpa tag <html> atau <body>, cukup div wrapper).
@@ -214,11 +255,12 @@ export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<str
     
     Struktur LKPD:
     1. Kop/Header (Judul LKPD, Nama Kelompok/Siswa, Kelas, Tanggal).
-    2. Petunjuk Belajar (Bahasa yang ramah anak).
-    3. Alat dan Bahan (Jika perlu).
-    4. Aktivitas Utama (Berikan tempat kosong/garis titik-titik untuk siswa menulis jawaban).
+    ${imageUrl ? `2. Gambar Materi: Sisipkan gambar ini di bagian atas: <img src="${imageUrl}" style="width: 100%; max-width: 400px; margin: 10px auto; display: block; border-radius: 10px;" />` : ''}
+    3. Petunjuk Belajar (Bahasa yang ramah anak).
+    4. Alat dan Bahan (Jika perlu).
+    5. Aktivitas Utama (Berikan tempat kosong/garis titik-titik untuk siswa menulis jawaban).
        - Buat pertanyaan pemantik atau tabel pengamatan yang relevan dengan materi.
-    5. Refleksi Singkat (Emoji perasaan setelah belajar).
+    6. Refleksi Singkat (Emoji perasaan setelah belajar).
   `;
 
   try {
@@ -252,6 +294,8 @@ export const generateSoal = async (data: RPMResult, apiKey: string): Promise<str
     return `<div style="padding: 20px; color: red; border: 1px solid red;">API Key tidak ditemukan (Code: MISSING).</div>`;
   }
 
+  const imageUrl = await generateImageForTopic(data.materi, apiKey);
+
   const prompt = `
     Buatkan instrumen penilaian pengetahuan (Soal Latihan) untuk siswa SD.
     
@@ -260,15 +304,17 @@ export const generateSoal = async (data: RPMResult, apiKey: string): Promise<str
     - Mapel: ${data.subject}
     - Materi: ${data.materi}
     - TP: ${data.tp}
+    ${imageUrl ? `- Gambar relevan untuk materi: Tersedia (akan disisipkan di bagian atas soal).` : ''}
 
     Instruksi Output:
     Kembalikan output sebagai string HTML lengkap.
     
     Struktur Dokumen:
     1. Judul: "Latihan Soal - [Nama Materi]"
-    2. Bagian A: 5 Soal Pilihan Ganda (Berikan opsi A, B, C, D).
-    3. Bagian B: 5 Soal Isian Singkat / Uraian (HOTS - Higher Order Thinking Skills).
-    4. Kunci Jawaban (Letakkan di bagian paling bawah, pisahkan dengan garis putus-putus "Gunting di sini").
+    ${imageUrl ? `2. Gambar Materi: Sisipkan gambar ini di bagian atas: <img src="${imageUrl}" style="width: 100%; max-width: 400px; margin: 10px auto; display: block; border-radius: 10px;" />` : ''}
+    3. Bagian A: 5 Soal Pilihan Ganda (Berikan opsi A, B, C, D).
+    4. Bagian B: 5 Soal Isian Singkat / Uraian (HOTS - Higher Order Thinking Skills).
+    5. Kunci Jawaban (Letakkan di bagian paling bawah, pisahkan dengan garis putus-putus "Gunting di sini").
   `;
 
   try {

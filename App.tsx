@@ -11,9 +11,15 @@ const App: React.FC = () => {
   const [dateTime, setDateTime] = useState(new Date());
   
   // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('is_authenticated') === 'true';
+  });
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('is_authenticated', String(isAuthenticated));
+  }, [isAuthenticated]);
 
   // Clock Timer
   useEffect(() => {
@@ -41,6 +47,7 @@ const App: React.FC = () => {
         ...generatedContent
       };
       setRpmResult(fullResult);
+      localStorage.setItem('rpm_result', JSON.stringify(fullResult));
     } catch (error: any) {
       console.error(error);
       if (error.message === "QUOTA_EXCEEDED" || String(error?.message).includes("quota")) {
@@ -52,6 +59,13 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const savedResult = localStorage.getItem('rpm_result');
+    if (savedResult) {
+      setRpmResult(JSON.parse(savedResult));
+    }
+  }, []);
 
   // Komponen Tombol WA (Reusable)
   const WhatsAppButton = () => (
@@ -213,7 +227,7 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="animate-fade-in">
-              <RPMPreview data={rpmResult} onReset={() => setRpmResult(null)} />
+              <RPMPreview data={rpmResult} onReset={() => { setRpmResult(null); localStorage.removeItem('rpm_result'); }} />
             </div>
           )}
         </main>

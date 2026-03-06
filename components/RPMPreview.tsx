@@ -361,14 +361,14 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
             <div style={{ textAlign: 'center', width: '40%' }}>
                 <p style={{ margin: 0 }}>Mengetahui,</p>
                 <p style={{ margin: 0, fontWeight: 'bold' }}>Kepala SDN Pekayon 09</p>
-                <div style={{ height: '167px' }}></div>
+                <div style={{ height: '147px' }}></div>
                 <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{data.principalName}</p>
                 <p style={{ margin: 0 }}>NIP. {data.principalNIP}</p>
             </div>
             <div style={{ textAlign: 'center', width: '40%' }}>
                 <p style={{ margin: 0 }}>Jakarta, {formatDate(data.documentDate)}</p>
                 <p style={{ margin: 0, fontWeight: 'bold' }}>Guru Kelas / Mata Pelajaran</p>
-                <div style={{ height: '167px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div style={{ height: '147px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                    {signatureSrc && <img src={signatureSrc} alt="Tanda Tangan" crossOrigin="anonymous" style={{ height: '125px', width: 'auto', marginBottom: '-10px', objectFit: 'contain' }} />}
                 </div>
                 <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>{data.teacherName}</p>

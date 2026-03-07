@@ -1,9 +1,72 @@
 import React, { useRef, useState } from 'react';
 import { RPMResult } from '../types';
-import { Copy, Download, ArrowLeft, FileText, ClipboardList, X, Loader2 } from 'lucide-react';
+import { Copy, Download, ArrowLeft, FileText, ClipboardList, X, Loader2, Sparkles, Plus, Image as ImageIcon, Trash2, Wand2 } from 'lucide-react';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
-import { generateLKPD, generateSoal } from '../services/geminiService';
+import { generateLKPD, generateSoal, generateImageForTopic } from '../services/geminiService';
+
+interface QuestionConfig {
+  id: number;
+  type: string;
+  level: string;
+  count: number;
+  illustration: string | null;
+  isGenerating: boolean;
+}
+
+const QuestionGenerator: React.FC<{ data: RPMResult }> = ({ data }) => {
+  const [questions, setQuestions] = useState<QuestionConfig[]>([
+    { id: 1, type: 'Pilihan Ganda', level: 'L1 - Mengingat/Memahami', count: 1, illustration: null, isGenerating: false },
+  ]);
+
+  const handleGenerateImage = async (id: number) => {
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, isGenerating: true } : q));
+    const apiKey = localStorage.getItem('gemini_api_key') || '';
+    const imageUrl = await generateImageForTopic(data.materi, apiKey);
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, illustration: imageUrl, isGenerating: false } : q));
+  };
+
+  return (
+    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mt-8">
+      <div className="flex items-center gap-2 mb-6">
+        <Sparkles className="text-primary" />
+        <h3 className="text-lg font-semibold">Generator Soal Berbasis AI (Sesuai Materi RPM)</h3>
+      </div>
+      <div className="space-y-4">
+        {questions.map((q, index) => (
+          <div key={q.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <div className="flex-shrink-0 size-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-primary">{index + 1}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 w-full">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase">TIPE</label>
+                <select className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-slate-50 text-sm outline-none">
+                  <option>Pilihan Ganda</option>
+                  <option>Uraian</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase">JUMLAH</label>
+                <input className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-slate-50 text-sm outline-none" type="number" value={q.count} />
+              </div>
+              <div className="flex items-end pb-1 gap-2">
+                <button 
+                  onClick={() => handleGenerateImage(q.id)}
+                  className={`flex-1 h-10 flex items-center justify-center gap-2 px-3 rounded-lg border ${q.illustration ? 'border-primary text-primary bg-primary/5' : 'border-slate-200'} transition-colors`}
+                >
+                  <ImageIcon size={18} /> 
+                  <span className="text-sm font-medium">{q.isGenerating ? 'Generating...' : (q.illustration ? 'Ilustrasi Aktif' : 'Ilustrasi')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="mt-6 w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-3 transition-transform active:scale-[0.98]">
+        <Wand2 size={20} /> Buat Soal Asesmen
+      </button>
+    </div>
+  );
+};
 
 interface RPMPreviewProps {
   data: RPMResult;
@@ -375,6 +438,8 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
                 <p style={{ margin: 0 }}>NIP. {data.teacherNIP}</p>
             </div>
         </div>
+
+        <QuestionGenerator data={data} />
       </div>
 
       {/* Modal untuk LKPD & Soal */}

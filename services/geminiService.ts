@@ -286,7 +286,7 @@ export const generateLKPD = async (data: RPMResult, apiKey: string): Promise<str
   }
 };
 
-export const generateSoal = async (data: RPMResult, apiKey: string): Promise<string> => {
+export const generateSoal = async (data: RPMResult, apiKey: string, config: AssessmentConfig): Promise<string> => {
   let ai;
   try {
     ai = getAI(apiKey);
@@ -294,27 +294,42 @@ export const generateSoal = async (data: RPMResult, apiKey: string): Promise<str
     return `<div style="padding: 20px; color: red; border: 1px solid red;">API Key tidak ditemukan (Code: MISSING).</div>`;
   }
 
-  const imageUrl = await generateImageForTopic(data.materi, apiKey);
+  const imageUrls = config.includeImage 
+    ? await Promise.all(config.questions.map(q => generateImageForTopic(q.text, apiKey)))
+    : config.questions.map(() => null);
 
   const prompt = `
-    Buatkan instrumen penilaian pengetahuan (Soal Latihan) untuk siswa SD.
+    Buatkan instrumen penilaian pengetahuan (Soal Latihan) untuk siswa SD berdasarkan konfigurasi berikut.
     
     Data:
     - Kelas: ${data.classLevel}
     - Mapel: ${data.subject}
     - Materi: ${data.materi}
     - TP: ${data.tp}
-    ${imageUrl ? `- Gambar relevan untuk materi: Tersedia (akan disisipkan di bagian atas soal).` : ''}
+
+    Konfigurasi Soal:
+    ${config.questions.map((q, i) => `
+      Soal ${i + 1}:
+      - Tipe: ${q.type}
+      - Level Kognitif: ${q.cognitiveLevel}
+      - Teks Soal: ${q.text}
+      ${q.options ? `- Opsi: ${q.options.join(', ')}` : ''}
+      ${imageUrls[i] ? `- Gambar relevan: Tersedia (akan disisipkan di atas soal ${i+1}).` : ''}
+    `).join('\n')}
 
     Instruksi Output:
     Kembalikan output sebagai string HTML lengkap.
     
     Struktur Dokumen:
-    1. Judul: "Latihan Soal - [Nama Materi]"
-    ${imageUrl ? `2. Gambar Materi: Sisipkan gambar ini di bagian atas: <img src="${imageUrl}" style="width: 100%; max-width: 400px; margin: 10px auto; display: block; border-radius: 10px;" />` : ''}
-    3. Bagian A: 5 Soal Pilihan Ganda (Berikan opsi A, B, C, D).
-    4. Bagian B: 5 Soal Isian Singkat / Uraian (HOTS - Higher Order Thinking Skills).
-    5. Kunci Jawaban (Letakkan di bagian paling bawah, pisahkan dengan garis putus-putus "Gunting di sini").
+    1. Judul: "Latihan Soal - ${data.materi}"
+    2. Daftar Soal:
+       ${config.questions.map((q, i) => `
+         Soal ${i + 1}:
+         ${imageUrls[i] ? `<img src="${imageUrls[i]}" style="width: 100%; max-width: 400px; margin: 10px auto; display: block; border-radius: 10px;" />` : ''}
+         ${q.text}
+         ${q.options ? `<ul>${q.options.map(o => `<li>${o}</li>`).join('')}</ul>` : ''}
+       `).join('\n')}
+    3. Kunci Jawaban (Letakkan di bagian paling bawah, pisahkan dengan garis putus-putus "Gunting di sini").
   `;
 
   try {

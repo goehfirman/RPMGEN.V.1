@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { RPMResult, Question, QuestionType, CognitiveLevel, AssessmentConfig } from '../types';
-import { Copy, Download, ArrowLeft, FileText, ClipboardList, X, Loader2, Plus, Trash2, Image as ImageIcon } from 'lucide-react';
+import { RPMResult } from '../types';
+import { Copy, Download, ArrowLeft, FileText, ClipboardList, X, Loader2 } from 'lucide-react';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
-import { generateLKPD, generateSoal, generateImageForTopic } from '../services/geminiService';
+import { generateLKPD, generateSoal } from '../services/geminiService';
 
 interface RPMPreviewProps {
   data: RPMResult;
@@ -15,12 +15,6 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
   const [activeModal, setActiveModal] = useState<'none' | 'lkpd' | 'soal'>('none');
   const [modalContent, setModalContent] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
-  
-  // New Assessment State
-  const [assessmentConfig, setAssessmentConfig] = useState<AssessmentConfig>({
-    questions: [{ id: '1', type: 'Pilihan Ganda', text: '', answer: '', cognitiveLevel: 'L1' }],
-    includeImage: false
-  });
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
@@ -99,7 +93,7 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
         if (type === 'lkpd') {
             content = await generateLKPD(data, apiKey);
         } else {
-            content = await generateSoal(data, apiKey, assessmentConfig);
+            content = await generateSoal(data, apiKey);
         }
         setModalContent(content);
     } catch (e) {
@@ -425,32 +419,6 @@ const RPMPreview: React.FC<RPMPreviewProps> = ({ data, onReset }) => {
 
             {/* Modal Footer */}
             <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-white rounded-b-2xl">
-              {activeModal === 'soal' && (
-                <div className="flex-1 flex gap-2 overflow-x-auto custom-scrollbar">
-                  <div className="flex flex-col gap-2 p-2 border-r border-slate-200">
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                      <input type="checkbox" checked={assessmentConfig.includeImage} onChange={(e) => setAssessmentConfig(prev => ({...prev, includeImage: e.target.checked}))} />
-                      Gambar Otomatis
-                    </label>
-                  </div>
-                  {assessmentConfig.questions.map((q, i) => (
-                    <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 min-w-[200px] text-xs">
-                       <div className="flex justify-between items-center mb-2">
-                         <span className="font-bold">Soal {i+1}</span>
-                         <button onClick={() => setAssessmentConfig(prev => ({...prev, questions: prev.questions.filter(x => x.id !== q.id)}))} className="text-red-500"><Trash2 size={12}/></button>
-                       </div>
-                       <input value={q.text} onChange={(e) => setAssessmentConfig(prev => ({...prev, questions: prev.questions.map(x => x.id === q.id ? {...x, text: e.target.value} : x)}))} placeholder="Teks soal..." className="w-full bg-white border border-slate-200 rounded p-1 mb-1"/>
-                       <select value={q.type} onChange={(e) => setAssessmentConfig(prev => ({...prev, questions: prev.questions.map(x => x.id === q.id ? {...x, type: e.target.value as QuestionType} : x)}))} className="w-full bg-white border border-slate-200 rounded p-1 mb-1">
-                         {['Pilihan Ganda', 'Multiple Choice Multiple Answer', 'Benar/Salah', 'Kategori setuju/tidak setuju', 'Isian', 'Uraian'].map(t => <option key={t} value={t}>{t}</option>)}
-                       </select>
-                    </div>
-                  ))}
-                  <button onClick={() => setAssessmentConfig(prev => ({...prev, questions: [...prev.questions, { id: Date.now().toString(), type: 'Pilihan Ganda', text: '', answer: '', cognitiveLevel: 'L1' }]}))} className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 rounded-lg text-slate-400 hover:border-purple-400 hover:text-purple-500">
-                    <Plus size={20}/>
-                    <span className="text-[10px] font-bold mt-1">Tambah</span>
-                  </button>
-                </div>
-              )}
               <button 
                 onClick={() => setActiveModal('none')} 
                 className="px-5 py-2.5 text-slate-600 font-bold text-sm hover:bg-slate-50 rounded-lg transition"

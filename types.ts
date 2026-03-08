@@ -83,24 +83,6 @@ export interface Rubric {
   rows: RubricRow[];
 }
 
-export type QuestionType = 'Pilihan Ganda' | 'Multiple Choice Multiple Answer' | 'Benar/Salah' | 'Kategori setuju/tidak setuju' | 'Isian' | 'Uraian';
-export type CognitiveLevel = 'L1' | 'L2' | 'L3';
-
-export interface Question {
-  id: string;
-  type: QuestionType;
-  text: string;
-  options?: string[];
-  answer: string;
-  cognitiveLevel: CognitiveLevel;
-  imageUrl?: string;
-}
-
-export interface AssessmentConfig {
-  questions: Question[];
-  includeImage: boolean;
-}
-
 export interface GeneratedContent {
   studentCharacteristics: string;
   crossDisciplinary: string;
